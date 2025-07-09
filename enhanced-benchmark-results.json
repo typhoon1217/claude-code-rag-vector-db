@@ -1,0 +1,53 @@
+{
+  "indexingTime": 2486.668048,
+  "scenarios": [
+    {
+      "scenario": "RAG Vector Search (Cold)",
+      "metrics": {
+        "averageTime": 9.323790066666758,
+        "p95Time": 11.203821000000062,
+        "throughput": 107.25252208059406,
+        "accuracy": 0,
+        "cacheHitRate": 0
+      },
+      "details": {
+        "totalQueries": 15,
+        "successfulMatches": 0,
+        "codebaseSize": 99597,
+        "indexSize": 983040
+      }
+    },
+    {
+      "scenario": "RAG Vector Search (Warm + Cached)",
+      "metrics": {
+        "averageTime": 5.331137533333458,
+        "p95Time": 10.369434000000183,
+        "throughput": 187.57722788943303,
+        "accuracy": 0,
+        "cacheHitRate": 80
+      },
+      "details": {
+        "totalQueries": 15,
+        "successfulMatches": 0,
+        "codebaseSize": 99597,
+        "indexSize": 983040
+      }
+    },
+    {
+      "scenario": "Traditional Grep Search",
+      "metrics": {
+        "averageTime": 20.051416000000124,
+        "p95Time": 23.82872899999984,
+        "throughput": 49.87178960328756,
+        "accuracy": 0,
+        "cacheHitRate": 0
+      },
+      "details": {
+        "totalQueries": 15,
+        "successfulMatches": 0,
+        "codebaseSize": 99597,
+        "indexSize": 983040
+      }
+    }
+  ]
+}

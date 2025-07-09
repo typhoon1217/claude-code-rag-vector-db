@@ -1,0 +1,24 @@
+{
+  "withoutRAG": {
+    "operation": "File Search (without RAG)",
+    "averageTime": 1.3957275999999184,
+    "minTime": 0.9354840000000877,
+    "maxTime": 2.3185100000000602,
+    "totalTime": 13.957275999999183,
+    "iterations": 10,
+    "throughput": 716.4721826809605
+  },
+  "withRAG": {
+    "operation": "Vector Search (with RAG)",
+    "averageTime": 9.553638999999976,
+    "minTime": 8.252520000000004,
+    "maxTime": 12.435415999999805,
+    "totalTime": 95.53638999999976,
+    "iterations": 10,
+    "throughput": 104.67215686085716
+  },
+  "improvement": {
+    "speedup": 0.14609381828221915,
+    "percentageImprovement": -584.491658687593
+  }
+}
