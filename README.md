@@ -102,16 +102,15 @@ alias mcp-reindex='(cd $MCP_PROJECT_PATH && npm run clean-cache && npm run index
 alias mcp-clean-cache='(cd $MCP_PROJECT_PATH && npm run clean-cache)'
 
 # Health and monitoring
-alias mcp-health='curl -f http://localhost:3000/health 2>/dev/null || echo "Server not running"'
-alias mcp-logs='tail -f $MCP_PROJECT_PATH/data/logs/server.log 2>/dev/null || echo "No logs found"'
-alias mcp-port='lsof -i :3000'
+alias mcp-health='ps aux | grep "node dist/src/server/mcp.js" | grep -v grep > /dev/null && echo "MCP server running" || echo "MCP server not running"'
+alias mcp-logs='journalctl -f -u mcp-server 2>/dev/null || echo "No system logs found"'
+alias mcp-chroma-status='curl -f http://localhost:8000/api/v1/heartbeat 2>/dev/null && echo "ChromaDB running" || echo "ChromaDB not running"'
 
 # Quick workflows
 alias mcp-setup-project='mcp-index && mcp-start'
 alias mcp-refresh='mcp-reindex && mcp-restart'
 
-# Search current project (if API endpoint exists)
-alias mcp-search='function _mcp_search() { curl -X POST http://localhost:3000/search -H "Content-Type: application/json" -d "{\"query\":\"$1\",\"limit\":${2:-5}}" 2>/dev/null | jq . || echo "Server not running or no results"; }; _mcp_search'
+# Note: Search is only available through Claude Code MCP integration, not direct API calls
 
 # Development helpers
 alias mcp-debug='(cd $MCP_PROJECT_PATH && NODE_OPTIONS="--inspect" npm run dev)'
@@ -181,50 +180,64 @@ npm run start-server
 
 ### Basic Usage
 
-#### 1. Index Your Project
+#### 1. Start ChromaDB Server
+First, ensure ChromaDB is running on port 8000:
+```bash
+# Install ChromaDB if not installed
+pip install chromadb
+
+# Start ChromaDB server
+chroma run --host localhost --port 8000
+```
+
+#### 2. Index Your Project
 Navigate to any project directory and run:
 ```bash
 mcp-index
 ```
 This indexes the current directory for semantic search.
 
-#### 2. Start the MCP Server
+#### 3. Start the MCP Server
 ```bash
 mcp-start
 ```
-Starts the RAG server that Claude Code will connect to.
+Starts the MCP server that Claude Code will connect to via stdio.
 
-#### 3. Search Your Codebase
-```bash
-mcp-search "authentication middleware"
-mcp-search "database connection" 5  # limit to 5 results
-```
+#### 4. Search Your Codebase
+Searching is only available through Claude Code MCP integration. The server provides these tools:
+- `search_codebase`: Search through indexed code
+- `index_codebase`: Index a new codebase
+- `get_index_stats`: View database statistics
+- `clear_index`: Clear the vector database
 
 ### Complete Workflow
 ```bash
-# Navigate to your project
+# 1. Start ChromaDB server (in separate terminal)
+chroma run --host localhost --port 8000
+
+# 2. Navigate to your project
 cd /path/to/your/project
 
-# Index and start server in one command
+# 3. Index and start MCP server
 mcp-setup-project
 
-# Search for relevant code
-mcp-search "error handling"
+# 4. Use Claude Code with MCP integration to search
+# Search is handled through Claude Code's MCP tools
 
-# When done, stop the server
+# 5. When done, stop the server
 mcp-stop
 ```
 
 ### Claude Code Integration
 
-Add this to your Claude Code configuration:
+Add this to your Claude Code configuration file:
 ```json
 {
   "mcp": {
     "servers": {
       "rag-context": {
         "command": "node",
-        "args": ["dist/server/mcp.js"],
+        "args": ["dist/src/server/mcp.js"],
         "cwd": "/path/to/claude-code-rag-vector-db"
       }
     }
@@ -232,7 +245,16 @@ Add this to your Claude Code configuration:
 }
 ```
 
-After configuration, Claude Code will automatically use your indexed codebase for better context understanding.
+**Prerequisites:**
+1. ChromaDB server running on `http://localhost:8000`
+2. MCP server built and running
+3. Claude Code properly configured
+
+After configuration, Claude Code will have access to these MCP tools:
+- `search_codebase`: Search through your indexed code
+- `index_codebase`: Index new codebases
+- `get_index_stats`: View database statistics
+- `clear_index`: Clear the vector database
 
 ## 🛠️ Command Reference
 
@@ -242,19 +264,19 @@ After configuration, Claude Code will automatically use your indexed codebase fo
 |---------|-------------|---------|
 | `mcp-index` | Index current project | `mcp-index` |
 | `mcp-setup-project` | Index + start server | `mcp-setup-project` |
-| `mcp-search "query"` | Search indexed content | `mcp-search "login"` |
 | `mcp-start` | Start MCP server | `mcp-start` |
 | `mcp-stop` | Stop MCP server | `mcp-stop` |
 | `mcp-restart` | Restart server | `mcp-restart` |
+| `mcp-chroma-status` | Check ChromaDB status | `mcp-chroma-status` |
 
 ### Server Management
 
 | Command | Description |
 |---------|-------------|
-| `mcp-status` | Show server status |
-| `mcp-health` | Check server health |
+| `mcp-status` | Show MCP server status |
+| `mcp-health` | Check MCP server health |
+| `mcp-chroma-status` | Check ChromaDB status |
 | `mcp-logs` | View server logs |
-| `mcp-port` | Check port usage |
 
 ### Database Operations
 
@@ -301,22 +323,20 @@ npm run dev
 ### Configuration
 
 #### Server Settings
-Edit `src/config/settings.ts`:
+The MCP server configuration is in `src/server/mcp.ts`:
 ```typescript
-export const config = {
-  server: {
-    port: 3000,
-    host: '0.0.0.0'
-  },
-  vectorDb: {
-    collection: 'codebase',
-    similarity: 0.7
-  },
-  embedding: {
-    model: 'Xenova/all-MiniLM-L6-v2',
-    batchSize: 100
-  }
-};
+// ChromaDB connection
+const chromaUrl = 'http://localhost:8000';
+
+// Vector store settings
+const collectionName = 'codebase';
+
+// Embedding model
+const embeddingModel = 'Xenova/all-MiniLM-L6-v2';
+
+// Code processing options
+const maxChunkSize = 1000;
+const overlapSize = 100;
 ```
 
 #### File Type Support
@@ -328,8 +348,11 @@ Currently supports: `.ts`, `.js`, `.py`, `.java`, `.cpp`, `.h`, `.md`, `.txt`
 
 #### Server Won't Start
 ```bash
-# Check if port is in use
-mcp-port
+# Check if MCP server is running
+mcp-health
+
+# Check if ChromaDB is running
+mcp-chroma-status
 
 # Kill existing process
 mcp-stop
@@ -385,10 +408,11 @@ mcp-reindex
 
 | Error | Solution |
 |-------|----------|
-| `EADDRINUSE` | Port 3000 in use, run `mcp-stop` |
+| `ChromaDB connection failed` | Start ChromaDB: `chroma run --host localhost --port 8000` |
 | `Module not found` | Run `npm install` |
 | `Cannot connect to server` | Check server status with `mcp-status` |
 | `Out of memory` | Use `mcp-mem` or increase Node heap size |
+| `Embedding model download failed` | Check internet connection, model downloads ~90MB |
 
 ## 📊 Usage Examples
 
@@ -421,11 +445,12 @@ mcp-search "backup procedures"
 
 ## 🔍 How It Works
 
-1. **Indexing**: Code files are parsed and split into semantic chunks
-2. **Embedding**: Each chunk is converted to vector embeddings using transformers
-3. **Storage**: Vectors are stored in ChromaDB for fast similarity search
-4. **Retrieval**: When you search, similar vectors are found and ranked
-5. **Integration**: Claude Code receives relevant context automatically
+1. **Prerequisites**: ChromaDB server runs on port 8000
+2. **Indexing**: Code files are parsed and split into semantic chunks
+3. **Embedding**: Each chunk is converted to vector embeddings using @xenova/transformers
+4. **Storage**: Vectors are stored in ChromaDB via HTTP client
+5. **MCP Server**: Provides stdio-based MCP tools for Claude Code
+6. **Integration**: Claude Code uses MCP tools to search indexed content
 
 ## 🎯 Best Practices
 

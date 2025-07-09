@@ -1,0 +1,12 @@
+{
+  "servers": {
+    "rag-context": {
+      "command": "node",
+      "args": ["dist/src/server/mcp.js"],
+      "cwd": "/home/jungwoo/Documents/ws/mcp-project-context",
+      "env": {
+        "NODE_ENV": "production"
+      }
+    }
+  }
+}

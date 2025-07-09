@@ -13,7 +13,10 @@
     "clean": "rm -rf dist",
     "clean-cache": "rm -rf data/cache",
     "reindex": "npm run clean-cache && npm run index-codebase",
-    "health-check": "curl -f http://localhost:3000/health || exit 1"
+    "health-check": "ps aux | grep 'node dist/src/server/mcp.js' | grep -v grep > /dev/null || exit 1",
+    "check-chroma": "curl -f http://localhost:8000/api/v1/heartbeat || exit 1",
+    "start-chroma": "chroma run --host localhost --port 8000",
+    "setup": "npm run build && npm run check-chroma"
   },
   "keywords": [
     "claude-code",

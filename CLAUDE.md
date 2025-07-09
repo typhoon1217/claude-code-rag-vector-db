@@ -17,11 +17,20 @@ High-performance local RAG system using TypeScript/Node.js for fast context retr
 
 ## Quick Start
 ```bash
+# 1. Install and start ChromaDB
+pip install chromadb
+chroma run --host localhost --port 8000
+
+# 2. Setup the project
 git clone https://github.com/typhoon1217/claude-code-rag-vector-db.git
 cd claude-code-rag-vector-db
 npm install
 npm run build
+
+# 3. Index your codebase
 npm run index-codebase -- --path /your/project/path
+
+# 4. Start MCP server
 npm run start-server
 ```
 
@@ -29,34 +38,54 @@ npm run start-server
 
 ### 1. Project Setup
 ```bash
+# Install dependencies
 npm install typescript @types/node ts-node
 npm install chromadb @xenova/transformers
 npm install @modelcontextprotocol/sdk
 npm install glob fast-glob chokidar
+
+# External dependency: ChromaDB server
+pip install chromadb
 ```
 
 ### 2. Core Components
 
 #### Vector Database Client (`src/vector/client.ts`)
 ```typescript
-import { ChromaClient, Collection } from 'chromadb';
+import { ChromaClient } from 'chromadb';
 import { pipeline } from '@xenova/transformers';
 
-class VectorStore {
+export class VectorStore {
   private client: ChromaClient;
   private embedder: any;
+  private collectionName = 'codebase';
+  
+  constructor(private chromaUrl: string = 'http://localhost:8000') {
+    this.client = new ChromaClient({ path: this.chromaUrl });
+  }
   
   async initialize() {
-    this.client = new ChromaClient();
     this.embedder = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
+    this.collection = await this.client.getOrCreateCollection({
+      name: this.collectionName
+    });
   }
   
   async addDocuments(documents: Document[]) {
-    // Batch embedding and storage
+    const embeddings = await this.generateEmbeddings(documents.map(d => d.content));
+    await this.collection.add({
+      ids: documents.map(d => d.id),
+      embeddings,
+      metadatas: documents.map(d => d.metadata)
+    });
   }
   
   async search(query: string, limit: number = 5) {
-    // Vector similarity search
+    const queryEmbedding = await this.generateEmbeddings([query]);
+    return await this.collection.query({
+      queryEmbeddings: queryEmbedding,
+      nResults: limit
+    });
   }
 }
 ```
@@ -87,19 +116,30 @@ class CodeProcessor {
 ```typescript
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { VectorStore } from '../vector/client.js';
+import { CodeProcessor } from '../processors/codeProcessor.js';
 
-class RAGServer {
-  private server = new Server({
-    name: 'rag-context',
-    version: '1.0.0'
-  });
+export class RAGServer {
+  private server: Server;
+  private vectorStore: VectorStore;
+  private codeProcessor: CodeProcessor;
+  
+  constructor() {
+    this.server = new Server({
+      name: 'rag-context',
+      version: '1.0.0'
+    });
+    this.vectorStore = new VectorStore('http://localhost:8000');
+    this.codeProcessor = new CodeProcessor();
+  }
   
   async start() {
+    // Setup MCP tool handlers
     this.server.setRequestHandler(ListToolsRequestSchema, async () => ({
       tools: [
         {
           name: 'search_codebase',
-          description: 'Search codebase for relevant context',
+          description: 'Search through indexed codebase',
           inputSchema: {
             type: 'object',
             properties: {
@@ -107,20 +147,29 @@ class RAGServer {
               limit: { type: 'number', default: 5 }
             }
           }
+        },
+        {
+          name: 'index_codebase',
+          description: 'Index a codebase directory',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              path: { type: 'string' }
+            }
+          }
+        },
+        {
+          name: 'get_index_stats',
+          description: 'Get database statistics'
+        },
+        {
+          name: 'clear_index',
+          description: 'Clear the vector database'
         }
       ]
     }));
     
-    this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
-      if (request.params.name === 'search_codebase') {
-        const results = await this.vectorStore.search(
-          request.params.arguments.query,
-          request.params.arguments.limit
-        );
-        return { content: [{ type: 'text', text: JSON.stringify(results) }] };
-      }
-    });
-    
+    // Connect via stdio transport
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
   }
@@ -194,13 +243,18 @@ Add to Claude Code config:
     "servers": {
       "rag-context": {
         "command": "node",
-        "args": ["dist/server/mcp.js"],
+        "args": ["dist/src/server/mcp.js"],
         "cwd": "/path/to/claude-code-rag-vector-db"
       }
     }
   }
 }
 ```
+
+**Prerequisites:**
+1. ChromaDB server running: `chroma run --host localhost --port 8000`
+2. MCP server built: `npm run build`
+3. Codebase indexed: `npm run index-codebase -- --path /your/project`
 
 ## Performance Optimizations
 
@@ -231,11 +285,14 @@ npm run index-codebase -- --path /home/user/my-project
 npm run start-server
 ```
 
-### Test search
+### Test MCP integration
 ```bash
-curl -X POST http://localhost:3000/search \
-  -H "Content-Type: application/json" \
-  -d '{"query": "authentication middleware", "limit": 3}'
+# Search is only available through Claude Code MCP integration
+# Once configured, Claude Code will have access to:
+# - search_codebase
+# - index_codebase  
+# - get_index_stats
+# - clear_index
 ```
 
 ## Commands Reference
@@ -250,7 +307,13 @@ npm run lint         # Check code quality
 
 ### Production
 ```bash
-npm run start-server # Start MCP server
+# 1. Start ChromaDB server
+chroma run --host localhost --port 8000
+
+# 2. Start MCP server
+npm run start-server
+
+# 3. Index codebase
 npm run index-codebase -- --path /path/to/code
 ```
 
@@ -276,7 +339,8 @@ git push -u origin main
 ### Environment Variables
 ```bash
 # Optional configuration
-export MCP_RAG_PORT=3000
+export CHROMA_HOST="localhost"
+export CHROMA_PORT="8000"
 export MCP_RAG_DATA_PATH="./data/vector_store"
 export NODE_OPTIONS="--max-old-space-size=4096"
 ```
@@ -284,9 +348,10 @@ export NODE_OPTIONS="--max-old-space-size=4096"
 ## Troubleshooting
 
 ### Common Issues
+- **ChromaDB connection**: Ensure ChromaDB server is running on port 8000
 - **Embedding model download**: First run downloads ~90MB model
 - **Memory usage**: Large codebases may need increased Node heap size
-- **Port conflicts**: Default port 3000, configurable via ENV
+- **MCP integration**: Ensure correct path to `dist/src/server/mcp.js`
 
 ### Performance Tuning
 ```bash
