@@ -30,7 +30,7 @@ export class RAGServer {
       }
     });
 
-    this.vectorStore = new VectorStore('./data/vector_store');
+    this.vectorStore = new VectorStore('http://localhost:8000');
     this.codeProcessor = new CodeProcessor();
 
     this.setupHandlers();

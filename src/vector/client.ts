@@ -1,4 +1,4 @@
-import { ChromaClient, Collection } from 'chromadb';
+import { ChromaClient } from 'chromadb';
 import { pipeline } from '@xenova/transformers';
 import * as path from 'path';
 import * as fs from 'fs/promises';
@@ -25,15 +25,13 @@ export interface SearchResult {
 
 export class VectorStore {
   private client: ChromaClient;
-  private collection!: Collection;
+  private collection!: any;
   private embedder!: any;
   private collectionName = 'codebase';
   private isInitialized = false;
 
-  constructor(private dataPath: string = './data/vector_store') {
-    this.client = new ChromaClient({
-      path: this.dataPath
-    });
+  constructor(private chromaUrl: string = 'http://localhost:8000') {
+    this.client = new ChromaClient({ path: this.chromaUrl });
   }
 
   async initialize(): Promise<void> {
@@ -41,11 +39,13 @@ export class VectorStore {
       console.log('Initializing vector store...');
       
       // Initialize local embedding model
+      console.log('Loading embedding model...');
       this.embedder = await pipeline(
         'feature-extraction',
         'Xenova/all-MiniLM-L6-v2',
         { quantized: true }
       ) as any;
+      console.log('Embedding model loaded successfully');
 
       // Create or get collection
       try {
@@ -195,7 +195,7 @@ export class VectorStore {
 
   async clearCache(): Promise<void> {
     try {
-      await fs.rm(path.join(this.dataPath, 'cache'), { recursive: true, force: true });
+      await fs.rm(path.join('./data/vector_store', 'cache'), { recursive: true, force: true });
       console.log('Cache cleared');
     } catch (error) {
       console.error('Failed to clear cache:', error);

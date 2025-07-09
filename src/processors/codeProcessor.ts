@@ -189,13 +189,21 @@ export class CodeProcessor {
     // Language-specific patterns
     const patterns = this.getLanguagePatterns(language);
     
+    let anonymousCounter = 0;
+    
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       
       // Check for function definitions
       const functionMatch = line.match(patterns.function);
       if (functionMatch) {
-        const functionName = functionMatch[1] || functionMatch[2] || 'anonymous';
+        let functionName = functionMatch[1] || functionMatch[2] || 'anonymous';
+        
+        // Make anonymous functions unique
+        if (functionName === 'anonymous') {
+          functionName = `anonymous_${++anonymousCounter}`;
+        }
+        
         const functionContent = this.extractBlock(lines, i, language);
         
         elements.push({

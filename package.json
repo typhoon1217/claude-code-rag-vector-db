@@ -2,11 +2,11 @@
   "name": "claude-code-rag-context",
   "version": "1.0.0",
   "description": "Local RAG vector database for Claude Code performance enhancement",
-  "main": "dist/server/mcp.js",
+  "main": "dist/src/server/mcp.js",
   "scripts": {
     "build": "tsc",
     "dev": "ts-node src/server/mcp.ts",
-    "start-server": "node dist/server/mcp.js",
+    "start-server": "node dist/src/server/mcp.js",
     "index-codebase": "ts-node scripts/index.ts",
     "test": "jest",
     "lint": "eslint src/**/*.ts",
