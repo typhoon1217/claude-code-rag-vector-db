@@ -1,0 +1,47 @@
+{
+  "name": "claude-code-rag-context",
+  "version": "1.0.0",
+  "description": "Local RAG vector database for Claude Code performance enhancement",
+  "main": "dist/server/mcp.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node src/server/mcp.ts",
+    "start-server": "node dist/server/mcp.js",
+    "index-codebase": "ts-node scripts/index.ts",
+    "test": "jest",
+    "lint": "eslint src/**/*.ts",
+    "clean": "rm -rf dist",
+    "clean-cache": "rm -rf data/cache",
+    "reindex": "npm run clean-cache && npm run index-codebase",
+    "health-check": "curl -f http://localhost:3000/health || exit 1"
+  },
+  "keywords": [
+    "claude-code",
+    "rag",
+    "vector-database",
+    "mcp"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^0.5.0",
+    "@xenova/transformers": "^2.17.2",
+    "chokidar": "^3.6.0",
+    "chromadb": "^1.10.5",
+    "fast-glob": "^3.3.2",
+    "typescript": "^5.8.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.6",
+    "@typescript-eslint/eslint-plugin": "^7.8.0",
+    "@typescript-eslint/parser": "^7.8.0",
+    "eslint": "^8.57.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.2",
+    "ts-node": "^10.9.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "type": "commonjs"
+}
